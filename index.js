@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 // Import required classes and functions
-const { Client, GatewayIntentBits, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, REST, Routes } = require('discord.js');
 
 // Set your bot's client ID and token from the environment variables
 const clientId = process.env.CLIENT_ID;
@@ -13,10 +13,6 @@ console.log(token);
 
 // Register the slash command
 const commands = [
-    {
-        name: 'ping',
-        description: 'Replies with Pong!',
-    },
     {
         name: 'getfeedback',
         description: 'Get feedback from team captains',
@@ -36,18 +32,20 @@ const rest = new REST({ version: '10' }).setToken(token);
 })();
 
 // Initialize the bot client
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent] });
+const client = new Client({
+    intents: [
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.Guilds,
+    ],
+    partials: [
+        Partials.Channel,
+        Partials.Message
+    ]
+})
 
 client.on('ready', () => {
     console.log('Bot is online!');
-});
-
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-
-    if (interaction.commandName === 'ping') {
-        await interaction.reply('Pong!');
-    }
 });
 
 client.on('interactionCreate', async interaction => {
@@ -85,26 +83,11 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-
-
-client.on('message', message => {
-    console.log("message called");
-    if (message.channel.type === 'dm') {
-        message.channel.send('Hello! I received your DM.');
-    }
-});
-
-
-
 client.on("messageCreate", async message => {
-    console.log("messageCreate called");
     // Ignore messages from bots
     if (message.author.bot) return;
 
-    // Check if the message is a direct message
-    if (message.channel.type === "DM") {
-        console.log(`Received DM from ${message.author.tag}: ${message.content}`);
-    }
+    console.log(`Received DM from ${message.author.tag}: ${message.content}`);
 });
 
 // Log in the bot
