@@ -1,4 +1,5 @@
 require('dotenv').config();
+const fs = require('fs');
 
 // Import required classes and functions
 const { Client, GatewayIntentBits, Partials, REST, Routes } = require('discord.js');
@@ -69,7 +70,7 @@ client.on('interactionCreate', async interaction => {
 
         console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
-        const dmMessage = "Hello! Please reply with your response.";
+        const dmMessage = "Hello! This is a message from CCE-UCX. We are conducting a survey to get feedback from our team captains. We'd really appreciate any feedback you might have for us!";
 
         membersWithRole.forEach(member => {
             member.send(dmMessage)
@@ -88,6 +89,19 @@ client.on("messageCreate", async message => {
     if (message.author.bot) return;
 
     console.log(`Received DM from ${message.author.tag}: ${message.content}`);
+
+    // Send a reply to the DM
+    await message.reply('Thank you for your feedback! Your response has been recorded.');
+
+    console.log(`Sent DM to ${message.author.tag}: Thank you for your feedback! Your response has been recorded.`);
+
+    fs.writeFile('Feedback.txt', `Feedback from ${message.author.tag} at ${new Date(message.createdTimestamp)} - "${message.content}"\n\n`, { flag: 'a' }, function (err) {
+        if (err)
+            return console.log(err);
+        else {
+            console.log("Saved!");
+        }
+    });
 });
 
 // Log in the bot
