@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 
 // Import required classes and functions
-const { Client, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, TextInputBuilder, ButtonBuilder, ButtonStyle, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, SlashCommandBuilder, Events } = require('discord.js');
 // Set your bot's client ID and token from the environment variables
 const clientId = process.env.CLIENT_ID;
 const token = process.env.BOT_TOKEN;
@@ -11,14 +11,23 @@ console.log(clientId);
 console.log(token);
 
 let globalInteraction = null;
+let dmMessage = null;
+let followUpMessage = null;
+
+const data = new SlashCommandBuilder()
+    .setName('getfeedback')
+    .setDescription('Get feedback from a role')
+    .addStringOption(option =>
+        option.setName('feedbackprompt')
+            .setDescription('The prompt for the feedback')
+            .setRequired(true))
+    .addStringOption(option =>
+        option.setName('followupmessage')
+            .setDescription('Follow up question after they have reponded with feedback')
+            .setRequired(false));
 
 // Register the slash command
-const commands = [
-    {
-        name: 'getfeedback',
-        description: 'Get feedback from team captains',
-    },
-];
+const commands = [data.toJSON()];
 
 const rest = new REST({ version: '10' }).setToken(token);
 
@@ -56,6 +65,9 @@ client.on('interactionCreate', async interaction => {
     if (interaction.commandName === 'getfeedback') {
         console.log("getfeedback called");
 
+        dmMessage = interaction.options.getString('feedbackprompt');
+        followUpMessage = interaction.options.getString('followupmessage');
+
         await interaction.deferReply();
 
         globalInteraction = interaction;
@@ -79,37 +91,37 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-let FinalRoleID = 0;
 client.on('interactionCreate', async interaction => {
     if (!interaction.isStringSelectMenu()) return;
 
-    interaction.deferReply();
+    if (interaction.customId !== 'role_select_menu') return;
 
-    const selectedRoleID = interaction.values[0];
+    await interaction.deferReply();
 
-    const role = globalInteraction.guild.roles.cache.get(selectedRoleID);
+    const role = globalInteraction.guild.roles.cache.get(interaction.values[0]);
     if (!role) {
-        return globalInteraction.editReply(`There is no role with ID ${selectedRoleID}.`, { ephemeral: true });
+        return globalInteraction.editReply(`There is no role with ID ${interaction.values[0]}.`, { ephemeral: true });
     }
 
-    const ButtonComponent = new ButtonBuilder()
-        .setCustomId('Submit')
-        .setLabel('Submit')
-        .setStyle(ButtonStyle.Primary);
+    await globalInteraction.deleteReply();
 
-    const cancelButtonComponent = new ButtonBuilder()
-        .setCustomId('Cancel')
-        .setLabel('Cancel')
-        .setStyle(ButtonStyle.Danger);
+    const membersWithRole = globalInteraction.guild.members.cache.filter(member => member.roles.cache.has(role.id));
 
-    const buttonRow = new ActionRowBuilder()
-        .addComponents(ButtonComponent, cancelButtonComponent);
+    await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
-    FinalRoleID = selectedRoleID;
+    console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
-    await globalInteraction.editReply({ content: `Selected role: ${role.name}. Press Submit to send feedback.`, components: [buttonRow] });
+    membersWithRole.forEach(member => {
+        member.send(dmMessage)
+            .catch(err => console.error(`Failed to send a message to ${member.user.tag}: ${err}`));
+    });
 
-    interaction.deleteReply();
+    // Edit the deferred reply with a confirmation message
+    await interaction.editReply('Direct messages have been sent to the specified role members.');
+
+    console.log("getfeedback finished");
+
+    await interaction.editReply({ content: 'Request for feedback sent!' });
 });
 
 
@@ -165,7 +177,10 @@ client.on("messageCreate", async message => {
     console.log(`Received DM from ${message.author.tag}: ${message.content}`);
 
     // Send a reply to the DM
-    await message.reply('Thank you for your feedback! Your response has been recorded.');
+    if (followUpMessage != null)
+        await message.reply(followUpMessage);
+    else
+        await message.reply('Thank you for your feedback! Your response has been recorded.');
 
     console.log(`Sent DM to ${message.author.tag}: Thank you for your feedback! Your response has been recorded.`);
 
