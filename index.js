@@ -11,7 +11,6 @@ console.log(clientId);
 console.log(token);
 
 let globalInteraction = null;
-let globalButtonInteraction = null;
 
 // Register the slash command
 const commands = [
@@ -125,9 +124,11 @@ client.on('interactionCreate', async interaction => {
         return globalInteraction.editReply(`There is no role with ID ${FinalRoleID}.`, { ephemeral: true });
     }
 
+    await globalInteraction.deleteReply();
+
     const membersWithRole = globalInteraction.guild.members.cache.filter(member => member.roles.cache.has(FinalRoleID));
 
-    await globalInteraction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+    await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
     console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
@@ -139,13 +140,11 @@ client.on('interactionCreate', async interaction => {
     });
 
     // Edit the deferred reply with a confirmation message
-    await globalInteraction.editReply('Direct messages have been sent to the specified role members.');
+    await interaction.editReply('Direct messages have been sent to the specified role members.');
 
     console.log("getfeedback finished");
 
-    await globalInteraction.editReply({ content: 'Feedback sent!' });
-
-    interaction.deleteReply();
+    await interaction.editReply({ content: 'Request for feedback sent!' });
 });
 
 client.on('interactionCreate', async interaction => {
