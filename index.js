@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 
 // Import required classes and functions
-const { Client, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, TextInputBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, TextInputBuilder, ButtonBuilder, ButtonStyle, Events } = require('discord.js');
 // Set your bot's client ID and token from the environment variables
 const clientId = process.env.CLIENT_ID;
 const token = process.env.BOT_TOKEN;
@@ -54,6 +54,8 @@ client.on('interactionCreate', async interaction => {
     if (interaction.commandName === 'getfeedback') {
         console.log("getfeedback called");
 
+        await interaction.deferReply();
+
         const roles = interaction.guild.roles.cache.map(role => ({
             label: role.name,
             value: role.id,
@@ -65,14 +67,19 @@ client.on('interactionCreate', async interaction => {
             .addOptions(roles);
 
         const actionRow = new ActionRowBuilder()
-            .addComponents(roleSelectMenu);
+            .addComponents(
+                roleSelectMenu);
 
-        await interaction.reply({ content: 'Select a role to send feedback to:', components: [actionRow] });
+        await interaction.editReply({ content: 'Select a role to send feedback to:', components: [actionRow] });
+
     }
 });
 
+let FinalRoleID = 0;
 client.on('interactionCreate', async interaction => {
     if (!interaction.isStringSelectMenu()) return;
+
+    await interaction.deferReply();
 
     const selectedRoleID = interaction.values[0];
 
@@ -81,9 +88,34 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply(`There is no role with ID ${selectedRoleID}.`, { ephemeral: true });
     }
 
-    const membersWithRole = interaction.guild.members.cache.filter(member => member.roles.cache.has(selectedRoleID));
+    const ButtonComponent = new ButtonBuilder()
+        .setCustomId('Submit')
+        .setLabel('Submit')
+        .setStyle(ButtonStyle.Primary);
 
-    await interaction.reply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+    const buttonRow = new ActionRowBuilder()
+        .addComponents(ButtonComponent);
+
+    FinalRoleID = selectedRoleID;
+
+    await interaction.editReply({ content: `Selected role: ${role.name}. Press Submit to send feedback.`, components: [buttonRow] });
+});
+
+
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton()) return;
+    if (interaction.customId !== 'Submit') return;
+
+    await interaction.deferReply();
+
+    const role = interaction.guild.roles.cache.get(FinalRoleID);
+    if (!role) {
+        return interaction.editReply(`There is no role with ID ${FinalRoleID}.`, { ephemeral: true });
+    }
+
+    const membersWithRole = interaction.guild.members.cache.filter(member => member.roles.cache.has(FinalRoleID));
+
+    await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
     console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
@@ -98,6 +130,8 @@ client.on('interactionCreate', async interaction => {
     await interaction.editReply('Direct messages have been sent to the specified role members.');
 
     console.log("getfeedback finished");
+
+    await interaction.editReply({ content: 'Feedback sent!', ephemeral: true });
 });
 
 
