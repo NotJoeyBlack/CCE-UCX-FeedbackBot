@@ -1,14 +1,29 @@
 require('dotenv').config();
 const fs = require('fs');
+const express = require('express');
+const { google } = require('googleapis');
+
+const app = express();
+
+app.listen(3000, () => {
+    console.log('Example app listening at http://localhost:3000')
+});
+
+function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${month}/${day}/${year} ${hours}:${minutes}`;
+}
 
 // Import required classes and functions
 const { Client, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, SlashCommandBuilder, Events } = require('discord.js');
 // Set your bot's client ID and token from the environment variables
 const clientId = process.env.CLIENT_ID;
 const token = process.env.BOT_TOKEN;
-
-console.log(clientId);
-console.log(token);
 
 let globalInteraction = null;
 let dmMessage = null;
@@ -184,13 +199,37 @@ client.on("messageCreate", async message => {
 
     console.log(`Sent DM to ${message.author.tag}: Thank you for your feedback! Your response has been recorded.`);
 
-    fs.writeFile('Feedback.txt', `Feedback from ${message.author.tag} at ${new Date(message.createdTimestamp)} - "${message.content}"\n\n`, { flag: 'a' }, function (err) {
-        if (err)
-            return console.log(err);
-        else {
-            console.log("Saved!");
-        }
+    const auth = new google.auth.GoogleAuth({
+        keyFile: 'credentials.json',
+        scopes: 'https://www.googleapis.com/auth/spreadsheets',
     });
+
+    const client = await auth.getClient();
+
+    const googleSheets = google.sheets({ version: 'v4', auth: client });
+
+    const spreadsheetID = '1e2-BiQr-H2421aglpw4CNLcok285D5O88mkDN2OdbFY';
+
+    const getRows = await googleSheets.spreadsheets.values.get({
+        auth,
+        spreadsheetId: spreadsheetID,
+        range: 'Sheet1',
+        majorDimension: 'COLUMNS',
+    });
+
+    googleSheets.spreadsheets.values.append({
+        auth,
+        spreadsheetId: spreadsheetID,
+        range: 'Sheet1',
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+            values: [
+                [`${message.author.tag}`, `${formatDate(message.createdTimestamp)}`, `${message.content}`],
+            ],
+        },
+    });
+
+    console.log(`Appended to Google Sheet: ${message.author.tag}, ${formatDate(message.createdTimestamp)}, ${message.content}`);
 });
 
 // Log in the bot
