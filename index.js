@@ -2,12 +2,10 @@ require('dotenv').config();
 const fs = require('fs');
 
 // Import required classes and functions
-const { Client, GatewayIntentBits, Partials, REST, Routes } = require('discord.js');
-
+const { Client, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, TextInputBuilder } = require('discord.js');
 // Set your bot's client ID and token from the environment variables
 const clientId = process.env.CLIENT_ID;
 const token = process.env.BOT_TOKEN;
-let membersWithRole = [];
 
 console.log(clientId);
 console.log(token);
@@ -55,35 +53,53 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.commandName === 'getfeedback') {
         console.log("getfeedback called");
-        const roleID = "1087570706730070158";
 
-        // Defer the reply
-        await interaction.deferReply();
+        const roles = interaction.guild.roles.cache.map(role => ({
+            label: role.name,
+            value: role.id,
+        }));
 
-        const role = interaction.guild.roles.cache.get(roleID);
-        if (!role) {
-            return interaction.editReply(`There is no role with ID ${roleID}.`);
-        }
+        const roleSelectMenu = new StringSelectMenuBuilder()
+            .setCustomId('role_select_menu')
+            .setPlaceholder('Select a role')
+            .addOptions(roles);
 
-        const membersWithRole = interaction.guild.members.cache.filter(member => member.roles.cache.has(roleID));
+        const actionRow = new ActionRowBuilder()
+            .addComponents(roleSelectMenu);
 
-        await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
-
-        console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
-
-        const dmMessage = "Hello! This is a message from CCE-UCX. We are conducting a survey to get feedback from our team captains. We'd really appreciate any feedback you might have for us!";
-
-        membersWithRole.forEach(member => {
-            member.send(dmMessage)
-                .catch(err => console.error(`Failed to send a message to ${member.user.tag}: ${err}`));
-        });
-
-        // Edit the deferred reply with a confirmation message
-        await interaction.editReply('Direct messages have been sent to the specified role members.');
-
-        console.log("getfeedback finished");
+        await interaction.reply({ content: 'Select a role to send feedback to:', components: [actionRow] });
     }
 });
+
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isStringSelectMenu()) return;
+
+    const selectedRoleID = interaction.values[0];
+
+    const role = interaction.guild.roles.cache.get(selectedRoleID);
+    if (!role) {
+        return interaction.reply(`There is no role with ID ${selectedRoleID}.`, { ephemeral: true });
+    }
+
+    const membersWithRole = interaction.guild.members.cache.filter(member => member.roles.cache.has(selectedRoleID));
+
+    await interaction.reply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+
+    console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+
+    const dmMessage = `Feedback for role: ${role.name}`;
+
+    membersWithRole.forEach(member => {
+        member.send(dmMessage)
+            .catch(err => console.error(`Failed to send a message to ${member.user.tag}: ${err}`));
+    });
+
+    // Edit the deferred reply with a confirmation message
+    await interaction.editReply('Direct messages have been sent to the specified role members.');
+
+    console.log("getfeedback finished");
+});
+
 
 client.on("messageCreate", async message => {
     // Ignore messages from bots
