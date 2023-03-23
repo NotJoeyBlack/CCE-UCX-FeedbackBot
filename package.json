@@ -19,6 +19,7 @@
   "homepage": "https://github.com/NotJoeyBlack/CCE-UCX-FeedbackBot#readme",
   "dependencies": {
     "discord.js": "^14.8.0",
-    "dotenv": "^16.0.3"
+    "dotenv": "^16.0.3",
+    "googleapis": "^114.0.0"
   }
 }
