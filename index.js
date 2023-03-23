@@ -10,6 +10,9 @@ const token = process.env.BOT_TOKEN;
 console.log(clientId);
 console.log(token);
 
+let globalInteraction = null;
+let globalButtonInteraction = null;
+
 // Register the slash command
 const commands = [
     {
@@ -56,6 +59,8 @@ client.on('interactionCreate', async interaction => {
 
         await interaction.deferReply();
 
+        globalInteraction = interaction;
+
         const roles = interaction.guild.roles.cache.map(role => ({
             label: role.name,
             value: role.id,
@@ -70,7 +75,7 @@ client.on('interactionCreate', async interaction => {
             .addComponents(
                 roleSelectMenu);
 
-        await interaction.editReply({ content: 'Select a role to send feedback to:', components: [actionRow] });
+        await globalInteraction.editReply({ content: 'Select a role to send feedback to:', components: [actionRow] });
 
     }
 });
@@ -79,13 +84,13 @@ let FinalRoleID = 0;
 client.on('interactionCreate', async interaction => {
     if (!interaction.isStringSelectMenu()) return;
 
-    await interaction.deferReply();
+    interaction.deferReply();
 
     const selectedRoleID = interaction.values[0];
 
-    const role = interaction.guild.roles.cache.get(selectedRoleID);
+    const role = globalInteraction.guild.roles.cache.get(selectedRoleID);
     if (!role) {
-        return interaction.reply(`There is no role with ID ${selectedRoleID}.`, { ephemeral: true });
+        return globalInteraction.editReply(`There is no role with ID ${selectedRoleID}.`, { ephemeral: true });
     }
 
     const ButtonComponent = new ButtonBuilder()
@@ -93,12 +98,19 @@ client.on('interactionCreate', async interaction => {
         .setLabel('Submit')
         .setStyle(ButtonStyle.Primary);
 
+    const cancelButtonComponent = new ButtonBuilder()
+        .setCustomId('Cancel')
+        .setLabel('Cancel')
+        .setStyle(ButtonStyle.Danger);
+
     const buttonRow = new ActionRowBuilder()
-        .addComponents(ButtonComponent);
+        .addComponents(ButtonComponent, cancelButtonComponent);
 
     FinalRoleID = selectedRoleID;
 
-    await interaction.editReply({ content: `Selected role: ${role.name}. Press Submit to send feedback.`, components: [buttonRow] });
+    await globalInteraction.editReply({ content: `Selected role: ${role.name}. Press Submit to send feedback.`, components: [buttonRow] });
+
+    interaction.deleteReply();
 });
 
 
@@ -106,16 +118,16 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
     if (interaction.customId !== 'Submit') return;
 
-    await interaction.deferReply();
+    interaction.deferReply();
 
-    const role = interaction.guild.roles.cache.get(FinalRoleID);
+    const role = globalInteraction.guild.roles.cache.get(FinalRoleID);
     if (!role) {
-        return interaction.editReply(`There is no role with ID ${FinalRoleID}.`, { ephemeral: true });
+        return globalInteraction.editReply(`There is no role with ID ${FinalRoleID}.`, { ephemeral: true });
     }
 
-    const membersWithRole = interaction.guild.members.cache.filter(member => member.roles.cache.has(FinalRoleID));
+    const membersWithRole = globalInteraction.guild.members.cache.filter(member => member.roles.cache.has(FinalRoleID));
 
-    await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+    await globalInteraction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
     console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
@@ -127,13 +139,25 @@ client.on('interactionCreate', async interaction => {
     });
 
     // Edit the deferred reply with a confirmation message
-    await interaction.editReply('Direct messages have been sent to the specified role members.');
+    await globalInteraction.editReply('Direct messages have been sent to the specified role members.');
 
     console.log("getfeedback finished");
 
-    await interaction.editReply({ content: 'Feedback sent!', ephemeral: true });
+    await globalInteraction.editReply({ content: 'Feedback sent!' });
+
+    interaction.deleteReply();
 });
 
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton()) return;
+    if (interaction.customId !== 'Cancel') return;
+
+    interaction.deferReply();
+
+    globalInteraction.deleteReply();
+
+    interaction.deleteReply();
+});
 
 client.on("messageCreate", async message => {
     // Ignore messages from bots
