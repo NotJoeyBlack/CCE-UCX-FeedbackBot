@@ -62,7 +62,8 @@ const client = new Client({
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildPresences
+        GatewayIntentBits.GuildPresences,
+        GatewayIntentBits.GuildMembers,
     ],
     partials: [
         Partials.Channel,
@@ -118,9 +119,11 @@ client.on('interactionCreate', async interaction => {
         return globalInteraction.editReply(`There is no role with ID ${interaction.values[0]}.`, { ephemeral: true });
     }
 
-    await globalInteraction.deleteReply();
-
+    await globalInteraction.guild.members.fetch();
+    // Fetch members with the specified role
     const membersWithRole = globalInteraction.guild.members.cache.filter(member => member.roles.cache.has(role.id));
+
+    await globalInteraction.deleteReply();
 
     await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
 
