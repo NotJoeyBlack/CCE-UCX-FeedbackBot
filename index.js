@@ -11,8 +11,13 @@ function formatDate(timestamp) {
     return `${month}/${day}/${year} ${hours}:${minutes}`;
 }
 
+const ROLES_PER_PAGE = 10;
+
+let currentPage = 0;
+
+
 // Import required classes and functions
-const { Client, GatewayIntentBits, PermissionsBitField, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, SlashCommandBuilder, Events } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, ButtonBuilder, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, SlashCommandBuilder, Events } = require('discord.js');
 // Set your bot's client ID and token from the environment variables
 const clientId = process.env.CLIENT_ID;
 const token = process.env.BOT_TOKEN;
@@ -20,6 +25,44 @@ const token = process.env.BOT_TOKEN;
 let globalInteraction = null;
 let dmMessage = null;
 let followUpMessage = null;
+
+function createPaginationButtons(currentPage, totalPages) {
+    const prevButton = new ButtonBuilder()
+        .setCustomId('prev_page')
+        .setLabel('Previous')
+        .setStyle('Primary')
+        .setDisabled(currentPage === 0);
+
+    const nextButton = new ButtonBuilder()
+        .setCustomId('next_page')
+        .setLabel('Next')
+        .setStyle('Primary')
+        .setDisabled(currentPage >= totalPages - 1);
+
+    return new ActionRowBuilder().addComponents(prevButton, nextButton);
+}
+
+function createRoleSelectMenu(roles, page) {
+    const start = page * ROLES_PER_PAGE;
+    const end = start + ROLES_PER_PAGE;
+
+    const selectMenu = new ActionRowBuilder()
+        .addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`role_select:${page}`)
+                .setPlaceholder('Select a role')
+                .addOptions(
+                    roles.slice(start, end).map(role => ({
+                        label: role.label.length > 25 ? role.label.slice(0, 22) + '...' : role.label,
+                        value: role.value,
+                    }))
+                )
+        );
+
+    return selectMenu;
+}
+
+
 
 const data = new SlashCommandBuilder()
     .setName('getfeedback')
@@ -90,19 +133,46 @@ client.on('interactionCreate', async interaction => {
             value: role.id,
         }));
 
-        const roleSelectMenu = new StringSelectMenuBuilder()
-            .setCustomId('role_select_menu')
-            .setPlaceholder('Select a role')
-            .addOptions(roles);
+        const totalPages = Math.ceil(roles.length / ROLES_PER_PAGE);
+        const currentPage = 0;
 
-        const actionRow = new ActionRowBuilder()
-            .addComponents(
-                roleSelectMenu);
+        const roleSelectMenu = createRoleSelectMenu(roles, currentPage);
+        const paginationButtons = createPaginationButtons(currentPage, totalPages);
 
-        await globalInteraction.editReply({ content: 'Select a role to send feedback to:', components: [actionRow] });
-
+        await globalInteraction.editReply({ content: 'Select a role to send feedback to:', components: [roleSelectMenu, paginationButtons] });
     }
+
 });
+
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton()) return;
+
+    if (interaction.customId === 'prev_page' || interaction.customId === 'next_page') {
+        await interaction.deferUpdate();
+
+        const roles = interaction.guild.roles.cache.map(role => ({
+            label: role.name,
+            value: role.id,
+        }));
+
+        const totalPages = Math.ceil(roles.length / ROLES_PER_PAGE);
+
+        if (interaction.customId === 'prev_page') {
+            currentPage--;
+        } else {
+            currentPage++;
+        }
+
+        const roleSelectMenu = createRoleSelectMenu(roles, currentPage);
+        const paginationButtons = createPaginationButtons(currentPage, totalPages);
+
+        await interaction.editReply({ components: [roleSelectMenu, paginationButtons] });
+        return;
+    }
+
+    // ... the rest of your code for handling other button interactions
+});
+
 
 client.on('interactionCreate', async interaction => {
     if (!interaction.isStringSelectMenu()) return;
@@ -115,6 +185,7 @@ client.on('interactionCreate', async interaction => {
     if (!role) {
         return globalInteraction.editReply(`There is no role with ID ${interaction.values[0]}.`, { ephemeral: true });
     }
+    console.log(`Role selected: ${role.name} (${role.id})`);
 
     await globalInteraction.guild.members.fetch();
     // Fetch members with the specified role
