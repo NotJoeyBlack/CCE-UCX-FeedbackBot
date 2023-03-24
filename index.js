@@ -1,5 +1,4 @@
 require('dotenv').config();
-const fs = require('fs');
 const express = require('express');
 const { google } = require('googleapis');
 
@@ -212,13 +211,6 @@ client.on("messageCreate", async message => {
     const googleSheets = google.sheets({ version: 'v4', auth: client });
 
     const spreadsheetID = '1e2-BiQr-H2421aglpw4CNLcok285D5O88mkDN2OdbFY';
-
-    const getRows = await googleSheets.spreadsheets.values.get({
-        auth,
-        spreadsheetId: spreadsheetID,
-        range: 'Sheet1',
-        majorDimension: 'COLUMNS',
-    });
 
     googleSheets.spreadsheets.values.append({
         auth,
