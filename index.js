@@ -1,12 +1,5 @@
 require('dotenv').config();
-const express = require('express');
 const { google } = require('googleapis');
-
-const app = express();
-
-app.listen(3000, () => {
-    console.log('Example app listening at http://localhost:3000')
-});
 
 function formatDate(timestamp) {
     const date = new Date(timestamp);
