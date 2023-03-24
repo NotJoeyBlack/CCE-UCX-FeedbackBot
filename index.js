@@ -12,7 +12,7 @@ function formatDate(timestamp) {
 }
 
 // Import required classes and functions
-const { Client, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, SlashCommandBuilder, Events } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, SlashCommandBuilder, Events } = require('discord.js');
 // Set your bot's client ID and token from the environment variables
 const clientId = process.env.CLIENT_ID;
 const token = process.env.BOT_TOKEN;
@@ -72,6 +72,11 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.commandName === 'getfeedback') {
         console.log("getfeedback called");
+
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+            interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+            return;
+        }
 
         dmMessage = interaction.options.getString('feedbackprompt');
         followUpMessage = interaction.options.getString('followupmessage');
