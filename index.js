@@ -15,6 +15,8 @@ const ROLES_PER_PAGE = 10;
 
 let currentPage = 0;
 
+let selectedRole = null;
+
 
 // Import required classes and functions
 const { Client, GatewayIntentBits, PermissionsBitField, ButtonBuilder, Partials, REST, Routes, ActionRowBuilder, StringSelectMenuBuilder, SlashCommandBuilder, Events } = require('discord.js');
@@ -26,7 +28,7 @@ let globalInteraction = null;
 let dmMessage = null;
 let followUpMessage = null;
 
-function createPaginationButtons(currentPage, totalPages) {
+function createPaginationButtons(currentPage, totalPages, bShouldAddSubmitButton) {
     const prevButton = new ButtonBuilder()
         .setCustomId('prev_page')
         .setLabel('Previous')
@@ -39,7 +41,18 @@ function createPaginationButtons(currentPage, totalPages) {
         .setStyle('Primary')
         .setDisabled(currentPage >= totalPages - 1);
 
-    return new ActionRowBuilder().addComponents(prevButton, nextButton);
+    if (bShouldAddSubmitButton) {
+        const submitButton = new ButtonBuilder()
+            .setCustomId('submit')
+            .setLabel('Submit')
+            .setStyle('Success')
+            .setDisabled(false);
+        return new ActionRowBuilder().addComponents(prevButton, nextButton, submitButton);
+    }
+    else {
+
+        return new ActionRowBuilder().addComponents(prevButton, nextButton);
+    }
 }
 
 function createRoleSelectMenu(roles, page) {
@@ -137,9 +150,9 @@ client.on('interactionCreate', async interaction => {
         const currentPage = 0;
 
         const roleSelectMenu = createRoleSelectMenu(roles, currentPage);
-        const paginationButtons = createPaginationButtons(currentPage, totalPages);
+        const paginationButtons = createPaginationButtons(currentPage, totalPages, false);
 
-        await globalInteraction.editReply({ content: 'Select a role to send feedback to:', components: [roleSelectMenu, paginationButtons] });
+        await globalInteraction.editReply({ content: 'Select a role to ask for feedback from:', components: [roleSelectMenu, paginationButtons] });
     }
 
 });
@@ -164,50 +177,75 @@ client.on('interactionCreate', async interaction => {
         }
 
         const roleSelectMenu = createRoleSelectMenu(roles, currentPage);
-        const paginationButtons = createPaginationButtons(currentPage, totalPages);
+        const paginationButtons = createPaginationButtons(currentPage, totalPages, false);
 
         await interaction.editReply({ components: [roleSelectMenu, paginationButtons] });
         return;
     }
 
-    // ... the rest of your code for handling other button interactions
+
+    if (interaction.customId === 'submit') {
+
+        await interaction.deferReply();
+
+        const role = globalInteraction.guild.roles.cache.get(selectedRole);
+        if (!role) {
+            return globalInteraction.editReply(`There is no role with ID ${selectedRole}.`, { ephemeral: true });
+        }
+        console.log(`Role selected: ${role.name} (${role.id})`);
+
+        await globalInteraction.guild.members.fetch();
+        // Fetch members with the specified role
+        const membersWithRole = globalInteraction.guild.members.cache.filter(member => member.roles.cache.has(role.id));
+
+        await globalInteraction.deleteReply();
+
+        await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+
+        console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+
+        membersWithRole.forEach(member => {
+            member.send(dmMessage)
+                .catch(err => console.error(`Failed to send a message to ${member.user.tag}: ${err}`));
+        });
+
+        // Edit the deferred reply with a confirmation message
+        await interaction.editReply('Direct messages have been sent to the specified role members.');
+
+        console.log("getfeedback finished");
+
+        await interaction.editReply({ content: 'Request for feedback sent!' });
+
+        // ... the rest of your code for handling other button interactions
+    }
 });
 
 
 client.on('interactionCreate', async interaction => {
+    console.log("interactionCreate string select called");
     if (!interaction.isStringSelectMenu()) return;
 
-    if (interaction.customId !== 'role_select_menu') return;
 
-    await interaction.deferReply();
+    if (interaction.customId !== `role_select:${currentPage}`) return;
 
-    const role = globalInteraction.guild.roles.cache.get(interaction.values[0]);
-    if (!role) {
-        return globalInteraction.editReply(`There is no role with ID ${interaction.values[0]}.`, { ephemeral: true });
-    }
-    console.log(`Role selected: ${role.name} (${role.id})`);
+    await interaction.deferUpdate();
 
-    await globalInteraction.guild.members.fetch();
-    // Fetch members with the specified role
-    const membersWithRole = globalInteraction.guild.members.cache.filter(member => member.roles.cache.has(role.id));
+    selectedRole = interaction.values[0];
 
-    await globalInteraction.deleteReply();
+    const role = globalInteraction.guild.roles.cache.get(selectedRole);
 
-    await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+    const roles = interaction.guild.roles.cache.map(role => ({
+        label: role.name,
+        value: role.id,
+    }));
 
-    console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
+    const totalPages = Math.ceil(roles.length / ROLES_PER_PAGE);
 
-    membersWithRole.forEach(member => {
-        member.send(dmMessage)
-            .catch(err => console.error(`Failed to send a message to ${member.user.tag}: ${err}`));
-    });
+    const roleSelectMenu = createRoleSelectMenu(roles, currentPage);
+    const paginationButtons = createPaginationButtons(currentPage, totalPages, true);
 
-    // Edit the deferred reply with a confirmation message
-    await interaction.editReply('Direct messages have been sent to the specified role members.');
-
-    console.log("getfeedback finished");
-
-    await interaction.editReply({ content: 'Request for feedback sent!' });
+    await interaction.editReply({ content: `selected role : ${role.name}`, components: [roleSelectMenu, paginationButtons] });
+    return;
 });
 
 client.on("messageCreate", async message => {
