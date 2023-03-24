@@ -141,52 +141,6 @@ client.on('interactionCreate', async interaction => {
     await interaction.editReply({ content: 'Request for feedback sent!' });
 });
 
-
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-    if (interaction.customId !== 'Submit') return;
-
-    interaction.deferReply();
-
-    const role = globalInteraction.guild.roles.cache.get(FinalRoleID);
-    if (!role) {
-        return globalInteraction.editReply(`There is no role with ID ${FinalRoleID}.`, { ephemeral: true });
-    }
-
-    await globalInteraction.deleteReply();
-
-    const membersWithRole = globalInteraction.guild.members.cache.filter(member => member.roles.cache.has(FinalRoleID));
-
-    await interaction.editReply(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
-
-    console.log(`Fetching Guild Object... Found ${membersWithRole.size} members with the specified role.`);
-
-    const dmMessage = `Feedback for role: ${role.name}`;
-
-    membersWithRole.forEach(member => {
-        member.send(dmMessage)
-            .catch(err => console.error(`Failed to send a message to ${member.user.tag}: ${err}`));
-    });
-
-    // Edit the deferred reply with a confirmation message
-    await interaction.editReply('Direct messages have been sent to the specified role members.');
-
-    console.log("getfeedback finished");
-
-    await interaction.editReply({ content: 'Request for feedback sent!' });
-});
-
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-    if (interaction.customId !== 'Cancel') return;
-
-    interaction.deferReply();
-
-    globalInteraction.deleteReply();
-
-    interaction.deleteReply();
-});
-
 client.on("messageCreate", async message => {
     // Ignore messages from bots
     if (message.author.bot) return;
